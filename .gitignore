@@ -1,0 +1,17 @@
+
+# Python virtual env
+.venv/
+venv/
+ENV/
+.env/
+
+# Python caches
+__pycache__/
+*.pyc
+
+/.venv/
+/src/rag_platform/ingestion/data/mtca_output/
+/src/rag_platform/ingestion/data/quarantine/
+/src/rag_platform/evaluation/data/old/
+/src/rag_platform/evaluation/data/ragas_testset.csv
+/src/rag_platform/evaluation/data/ragas_testset.jsonl
