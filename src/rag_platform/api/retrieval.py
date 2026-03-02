@@ -36,8 +36,14 @@ def get_service(
     return RetrievalService(
         retriever=retriever,
         llm_model=s.generation_model,  # make sure settings has this
+        translate_model=s.translator_model,
         temperature=getattr(s, "temperature", 0.0),
-        reasoning=s.reasoning
+        reasoning=s.reasoning,
+        use_dotnet_llm=s.use_api,
+        provider=s.provider,
+        dotnet_base_url=s.base_url,
+        dotnet_is_chat=s.is_chat,
+        dotnet_client_guid=s.api_client_guid
     )
 
 

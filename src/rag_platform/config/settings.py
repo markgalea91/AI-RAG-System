@@ -2,6 +2,7 @@ import os
 from functools import lru_cache
 from pydantic_settings import BaseSettings
 from pydantic import Field
+from triton.knobs import env
 
 
 class Settings(BaseSettings):
@@ -39,7 +40,7 @@ class Settings(BaseSettings):
     translator_model: str = Field(default="translategemma:12b", env="TRAN_MODEL")
     generation_model: str = Field(default="nemotron-3-nano:30b", env="GEN_MODEL")
     evaluation_model: str = Field(default="qwen2.5:7b-instruct", env="EVAL_MODEL")
-    reasoning: bool = Field(default=True, env="REASONING")
+    reasoning: bool = Field(default=False, env="REASONING")
     # ------------------------
     # Ingestion Settings
     # ------------------------
@@ -56,6 +57,15 @@ class Settings(BaseSettings):
     # ------------------------
     ragas_max_workers: int = Field(default=1, env="RAGAS_MAX_WORKERS")
     ragas_timeout: int = Field(default=300, env="RAGAS_TIMEOUT")
+
+    # ------------------------
+    # .NET LLM API
+    # ------------------------
+    use_api: bool = Field(default=True, env="USE_LLM_API")
+    is_chat: bool = Field(default=False, env="IS_CHAT")
+    base_url: str = Field(default="https://llmapi.2iltd.com", env="BASE_URL")
+    provider: str = Field(default="ollama", env="PROVIDER")
+    api_client_guid: str = Field(default="7fe78163-0c8f-4bd1-b36b-bc75843bb69f", env="CLIENT_GUID")
 
     class Config:
         env_file = ".env"

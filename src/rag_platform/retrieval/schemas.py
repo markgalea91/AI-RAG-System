@@ -26,7 +26,7 @@ class RetrievalResult(BaseModel):
 
 class RAGAnswer(BaseModel):
     query: str
+    reasoning: Optional[str] = None
     answer: str
-    reasoning: str
-    sources: List[str]  # source_names used in answer context
+    sources: List[str]
     retrieval: RetrievalResult
