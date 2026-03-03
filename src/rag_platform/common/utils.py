@@ -22,3 +22,11 @@ def read_jsonl(path: str) -> List[Dict[str, Any]]:
 def append_jsonl(path: str, row: Dict[str, Any]) -> None:
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+def format_sources(sources: List[str]) -> List[str]:
+    formated_sources = []
+    for source in sources:
+        guid = Path(source).stem
+        formated_sources.append(guid)
+
+    return formated_sources

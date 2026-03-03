@@ -1,6 +1,7 @@
 # src/rag_platform/retrieval/service.py
 from __future__ import annotations
 
+import time
 from typing import Optional, Tuple, Union
 import re
 
@@ -8,6 +9,7 @@ from langchain_core.messages import AIMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_ollama import ChatOllama
 
+from rag_platform.common.utils import format_sources
 from rag_platform.retrieval.milvus_client import MilvusRetriever
 from rag_platform.retrieval.prompting import (
     PROMPT,
@@ -22,6 +24,7 @@ from rag_platform.retrieval.dotnet_auth import DotNetAuthConfig, DotNetAuthentic
 from rag_platform.retrieval.dotnet_llm import DotNetLlmClientConfig, DotNetLlmClient
 from rag_platform.retrieval.dotnet_chat import DotNetChatModel
 from rag_platform.retrieval.dotnet_client import DotNetApiClient, DotNetApiConfig
+from rag_platform.logging.rag_audit import audit_logger
 
 
 def is_maltese_heuristic(text: str) -> bool:
@@ -37,15 +40,18 @@ class RetrievalService:
         llm_model: str,
         translate_model: str,
         temperature: float = 0.0,
-        reasoning: bool = False,
+        reasoning: bool,
 
         use_dotnet_llm: bool,
         dotnet_base_url: str,
-        dotnet_client_guid: str = "",
-        # the GUID you got from AddClient (used as ApiKey in payload + to Authenticate)
-        provider: str,  # whatever your API expects
+        dotnet_client_guid: str,
+        provider: str,
         dotnet_is_chat: bool = False,
+        audit_logging=audit_logger,
+        trace_id: Optional[str] = None,
     ):
+        self.audit_logger = audit_logging
+        self.trace_id = trace_id
         self.retriever = retriever
         self.reasoning_enabled = reasoning
 
@@ -53,11 +59,11 @@ class RetrievalService:
             authenticator = DotNetAuthenticator(
                 client=DotNetApiClient(
                     DotNetApiConfig(
-                         base_url="https://llmapi.2iltd.com"
+                         base_url=dotnet_base_url
                     ),
                 ),
                 cfg=DotNetAuthConfig(
-                    guid=dotnet_client_guid,
+                    guid=dotnet_client_guid
                 )
             )
 
@@ -67,8 +73,8 @@ class RetrievalService:
                     provider=provider,
                     model=llm_model,
                     is_chat=dotnet_is_chat,
-                    extra_headers={"X-Env": "dev"},
-                    #client_key=dotnet_client_guid  # goes inside GenerateRequestModel.ApiKey
+                    reasoning=reasoning,
+                    extra_headers={"X-Env": "dev"}
                 ),
                 authenticator=authenticator
             )
@@ -166,51 +172,96 @@ class RetrievalService:
     # ---------- Main entrypoint ----------
 
     def answer(self, query: str, *, top_k: int = 3, max_chars_per_chunk: int = 1200) -> RAGAnswer:
-        # Translate query to English BEFORE retrieval if Maltese
-        query_en, user_lang = self._query_for_retrieval(query)
+        import time
+        t0 = time.perf_counter()
 
-        # Retrieve using English query (your corpus is English-only)
-        hits = self.retriever.retrieve([query_en], top_k=top_k)[0]
-        chunk_dicts, sources = hits_to_chunks(hits, max_chars=max_chars_per_chunk)
-        stuffed = stuff_context(chunk_dicts)
+        try:
+            # -------------------------
+            # Start logging
+            # -------------------------
+            if self.audit_logger and self.trace_id:
+                try:
+                    self.audit_logger.start(self.trace_id, query)
+                except Exception:
+                    pass
 
-        reasoning_text: Optional[str] = None
+            # -------------------------
+            # Translate query if needed
+            # -------------------------
+            query_en, user_lang = self._query_for_retrieval(query)
 
-        if not chunk_dicts:
-            answer_text = "I cannot answer this from the provided context."
-        else:
-            # Generate using English question (matches English context)
-            result = self.chain.invoke({"question": query_en, "context": stuffed})
+            # -------------------------
+            # Retrieval
+            # -------------------------
+            hits = self.retriever.retrieve([query_en], top_k=top_k)[0]
+            chunk_dicts, sources = hits_to_chunks(hits, max_chars=max_chars_per_chunk)
 
-            if self.reasoning_enabled:
-                # result is an AIMessage
-                assert isinstance(result, AIMessage)
-                answer_text = result.content
-                reasoning_text = (result.additional_kwargs or {}).get("reasoning_content")
-                if isinstance(reasoning_text, str):
-                    reasoning_text = reasoning_text.strip() or None
-                else:
-                    reasoning_text = None
+            if self.audit_logger and self.trace_id:
+                self.audit_logger.log_retrieval(self.trace_id, chunk_dicts)
+
+            stuffed = stuff_context(chunk_dicts)
+
+            reasoning_text: Optional[str] = None
+
+            # -------------------------
+            # Generation
+            # -------------------------
+            if not chunk_dicts:
+                answer_text = "I cannot answer this from the provided context."
             else:
-                # result is a string
-                answer_text = str(result)
+                result = self.chain.invoke({"question": query_en, "context": stuffed})
 
-            # Translate back if query was in Maltese
-            if user_lang == "mt":
-                answer_text = self._translate_answer_line_to_maltese(answer_text)
+                if self.reasoning_enabled:
+                    assert isinstance(result, AIMessage)
+                    answer_text = result.content
+                    reasoning_text = (result.additional_kwargs or {}).get("reasoning_content")
+                    if isinstance(reasoning_text, str):
+                        reasoning_text = reasoning_text.strip() or None
+                    else:
+                        reasoning_text = None
+                else:
+                    answer_text = str(result)
 
-        retrieval = RetrievalResult(
-            query=query,  # keep original user query
-            stuffed_context=stuffed,
-            chunks=[RetrievedChunk(**c) for c in chunk_dicts],
-        )
+                if user_lang == "mt":
+                    answer_text = self._translate_answer_line_to_maltese(answer_text)
 
-        # If your schema allows, it's useful to store query_en too (debugging).
-        # If not, leave it out to avoid breaking your schema.
-        return RAGAnswer(
-            query=query,
-            answer=answer_text,
-            reasoning=reasoning_text,
-            sources=sources,
-            retrieval=retrieval,
-        )
+            retrieval = RetrievalResult(
+                chunks=[RetrievedChunk(**c) for c in chunk_dicts]
+            )
+
+            # -------------------------
+            # Success logging
+            # -------------------------
+            if self.audit_logger and self.trace_id:
+                duration_ms = int((time.perf_counter() - t0) * 1000)
+                self.audit_logger.finish(
+                    self.trace_id,
+                    answer_text,
+                    reasoning_text,
+                    duration_ms,
+                    "success",
+                    None,
+                )
+
+            return RAGAnswer(
+                query=query,
+                answer=answer_text,
+                reasoning=reasoning_text,
+                sources=format_sources(sources),
+                retrieval=retrieval,
+            )
+
+        except Exception as e:
+            # -------------------------
+            # Failure logging
+            # -------------------------
+            if self.audit_logger and self.trace_id:
+                duration_ms = int((time.perf_counter() - t0) * 1000)
+                self.audit_logger.finish(
+                    self.trace_id,
+                    None,
+                    duration_ms,
+                    "failed",
+                    repr(e),
+                )
+            raise

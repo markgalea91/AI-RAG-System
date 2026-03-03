@@ -69,16 +69,6 @@ GENERIC_TRANSLATE_PROMPT = ChatPromptTemplate.from_messages([
     ("user", "{TEXT}")
 ])
 
-# TRANSLATE_TO_EN_PROMPT = ChatPromptTemplate.from_messages([
-#     ("system", "Translate the user's text to English. Output ONLY the translation. No explanations, no quotes, no extra text."),
-#     ("user", "{text}")
-# ])
-#
-# TRANSLATE_TO_MT_PROMPT = ChatPromptTemplate.from_messages([
-#     ("system", "Translate the user's text to Maltese. Output ONLY the translation. No explanations, no quotes, no extra text."),
-#     ("user", "{text}")
-# ])
-
 PROMPT = ChatPromptTemplate.from_messages([
     ("system", "You are a helpful assistant"),
     ("user", """

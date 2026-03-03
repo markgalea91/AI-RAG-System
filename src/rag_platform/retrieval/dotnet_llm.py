@@ -10,15 +10,15 @@ import httpx
 @dataclass
 class DotNetLlmClientConfig:
     base_url: str                       # e.g. "http://localhost:5000"
+    reasoning: bool
     timeout_s: float = 180.0
     verify_tls: bool = True
-    extra_headers: Optional[Dict[str, str]] = None
+    extra_headers: Optional[Dict[str, str]] = None,
 
     # The fixed provider/model values you want to send to your API
     provider: str = "Ollama"
     model: str = "nemotron-3-nano:30b"
     is_chat: bool = False
-
 
 class DotNetLlmClient:
     """
@@ -77,6 +77,7 @@ class DotNetLlmClient:
             "Provider": self.cfg.provider,
             "Model": self.cfg.model,
             "IsChat": self.cfg.is_chat,
+            "Think": self.cfg.reasoning,
             "PromptText": prompt_text,
             "RequestText": request_text,
         }

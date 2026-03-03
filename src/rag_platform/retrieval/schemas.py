@@ -15,13 +15,13 @@ class RetrievedChunk(BaseModel):
     source_name: str = "unknown_source"
     page_number: Optional[int] = None
     score: Optional[float] = None
-    raw: Optional[Dict[str, Any]] = None  # optional debug payload
+    # raw: Optional[Dict[str, Any]] = None  # optional debug payload
 
 
 class RetrievalResult(BaseModel):
-    query: str
+    # query: str
     chunks: List[RetrievedChunk]
-    stuffed_context: str
+    # stuffed_context: str
 
 
 class RAGAnswer(BaseModel):

@@ -1,6 +1,7 @@
 # src/rag_platform/retrieval/cli.py
 from __future__ import annotations
 
+import uuid
 import argparse
 import json
 
@@ -30,7 +31,7 @@ def main() -> None:
     p.add_argument("--top-k", type=int, default=3)
     p.add_argument("--llm-model", default="nemotron-3-nano:30b")
     p.add_argument("--translate-model", default="translategemma:12b")
-    p.add_argument("--reasoning", default=False)
+    p.add_argument("--reasoning", default=True)
 
     # LLM API Integration Settings
     p.add_argument("--use-api", default=True)
@@ -39,15 +40,18 @@ def main() -> None:
     p.add_argument("--provider", default="Ollama")
 
     #EN
-    p.add_argument("--query", default="What is my TAX Rate as a parent as of 2026 and what is the difference with previous years  including children ?")
+    # p.add_argument("--query", default="What is my TAX Rate as a parent as of 2026 and what is the difference with previous years  including children ?")
     # p.add_argument("--query", default="Which form is required by the VAT department for submitting a periodic statement summarising activities?")
-
+    p.add_argument("--query", default="What taxes do I have to pay as a parent in 2026?")
     #MT
     # p.add_argument("--query", default="X’inhi t-taxxa li rrid inhallas jien bhala genitur ghas-sena 2026 u x'inhi id-differenza min snin ta' qabel?")
 
 
 
     args = p.parse_args()
+
+    trace_id = str(uuid.uuid4())
+
     retriever = MilvusRetriever(milvus_uri=args.milvus_uri, collection_name=args.collection, hybrid=args.hybrid)
     svc = RetrievalService(
         retriever=retriever,
@@ -59,7 +63,8 @@ def main() -> None:
         dotnet_is_chat=args.is_chat,
         dotnet_base_url=args.base_url,
         provider=args.provider,
-        dotnet_client_guid="7fe78163-0c8f-4bd1-b36b-bc75843bb69f"
+        dotnet_client_guid="7fe78163-0c8f-4bd1-b36b-bc75843bb69f",
+        trace_id=trace_id
     )
 
     out = svc.answer(args.query, top_k=args.top_k)
