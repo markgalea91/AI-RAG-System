@@ -43,7 +43,7 @@ class IngestionService:
         *,
         heavy_mode: bool,
         temp_output_dir: str,
-        recreate: bool,
+        recreate: bool
     ) -> Ingestor:
         s = self.settings
 
@@ -62,7 +62,7 @@ class IngestionService:
             .save_to_disk(output_directory=temp_output_dir, cleanup=True)
             .files(files)
             .extract(**extract_kwargs)
-            .split(chunk_size=1000,
+            .split(chunk_size=1200,
                    chunk_overlap=150)
             .embed()
             .vdb_upload(

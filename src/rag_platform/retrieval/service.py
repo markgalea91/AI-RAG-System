@@ -1,8 +1,7 @@
 # src/rag_platform/retrieval/service.py
 from __future__ import annotations
 
-import time
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple
 import re
 
 from langchain_core.messages import AIMessage
@@ -10,6 +9,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_ollama import ChatOllama
 
 from rag_platform.common.utils import format_sources
+from rag_platform.retrieval.LLM.vLLM.vLLM import VLLMChat
 from rag_platform.retrieval.milvus_client import MilvusRetriever
 from rag_platform.retrieval.prompting import (
     PROMPT,
@@ -20,10 +20,10 @@ from rag_platform.retrieval.prompting import (
 )
 from rag_platform.retrieval.schemas import RetrievalResult, RetrievedChunk, RAGAnswer
 
-from rag_platform.retrieval.dotnet_auth import DotNetAuthConfig, DotNetAuthenticator
-from rag_platform.retrieval.dotnet_llm import DotNetLlmClientConfig, DotNetLlmClient
-from rag_platform.retrieval.dotnet_chat import DotNetChatModel
-from rag_platform.retrieval.dotnet_client import DotNetApiClient, DotNetApiConfig
+from rag_platform.retrieval.LLM.Dotnet_Integration.dotnet_auth import DotNetAuthConfig, DotNetAuthenticator
+from rag_platform.retrieval.LLM.Dotnet_Integration.dotnet_llm import DotNetLlmClientConfig, DotNetLlmClient
+from rag_platform.retrieval.LLM.Dotnet_Integration.dotnet_chat import DotNetChatModel
+from rag_platform.retrieval.LLM.Dotnet_Integration.dotnet_client import DotNetApiClient, DotNetApiConfig
 from rag_platform.logging.rag_audit import audit_logger
 
 
@@ -43,6 +43,7 @@ class RetrievalService:
         reasoning: bool,
 
         use_dotnet_llm: bool,
+        vllm_base_url: str,
         dotnet_base_url: str,
         dotnet_client_guid: str,
         provider: str,
@@ -80,14 +81,18 @@ class RetrievalService:
             )
 
             # ✅ This is the LangChain chat model wrapper (returns AIMessage)
-            self.llm = DotNetChatModel(client=llm_client)
+            self.llm = DotNetChatModel(client=llm_client, base_url=vllm_base_url)
         else:
             # fallback to Ollama directly
-            self.llm = ChatOllama(model=llm_model, temperature=temperature, reasoning=reasoning)
-
+            # self.llm = ChatOllama(model=llm_model, temperature=temperature, reasoning=reasoning)
+            self.llm = VLLMChat(model_name=llm_model,
+                                base_url="http://localhost:13001/v1",
+                                temperature=0)
         # Translator / language detector model (TranslateGemma etc.)
         # Keep temperature at 0 for deterministic translations/classification.
-        self.translator = ChatOllama(model=translate_model, temperature=0.0)
+        # self.translator = ChatOllama(model=translate_model, temperature=0.0)
+        self.translator = VLLMChat(model_name="kaitchup/translategemma-27b-it-autoround-w4a16",
+                                   base_url="http://localhost:13002/v1")
 
         # Translation + language detection chains
         self.detect_lang = DETECT_LANG_PROMPT | self.translator | StrOutputParser()

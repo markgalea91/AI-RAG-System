@@ -6,6 +6,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse
+import subprocess
 
 import httpx
 
@@ -17,6 +18,23 @@ class CheckResult:
     detail: str = ""
     latency_ms: Optional[int] = None
     extra: Optional[Dict[str, Any]] = None
+
+def compose(cmd, path):
+    subprocess.run(["docker", "compose"] + cmd,
+                   cwd=path,
+                   check=True,)
+
+    print("Services started")
+
+def compose_ps(path):
+    result = subprocess.run(
+        ["docker", "compose", "ps"],
+        cwd=path,
+        capture_output=True,
+        text=True
+    )
+    return result.stdout
+
 
 
 def _latency_ms(t0: float) -> int:

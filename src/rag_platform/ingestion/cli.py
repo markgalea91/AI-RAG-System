@@ -2,14 +2,16 @@ import argparse
 import json
 from dataclasses import asdict
 
+from rag_platform.api.app import health
 from rag_platform.config.settings import get_settings
 from rag_platform.common.logging import setup_logging
+from rag_platform.common.health import compose_ps, compose
 from rag_platform.ingestion.service import IngestionService
 
 
 def main():
     parser = argparse.ArgumentParser(description="RAG ingestion pipeline")
-    parser.add_argument("--data-dir", default="data/mtca_output/mtca_output_mt", help="Where to read data from")
+    parser.add_argument("--data-dir", default="data", help="Where to read data from")
     parser.add_argument("--recursive", action="store_true", default=True)
     parser.add_argument("--no-recursive", action="store_false", dest="recursive")
     parser.add_argument("--overwrite", action="store_true", default=True)
@@ -21,6 +23,9 @@ def main():
     settings = get_settings()
     logger = setup_logging()
 
+    # This will show docker container services running
+    # print(compose_ps(path=settings.compose_file_path))
+
     service = IngestionService(settings=settings, logger=logger)
     report = service.ingest_directory(
         directory=args.data_dir,
@@ -31,6 +36,9 @@ def main():
     )
 
     print(json.dumps(asdict(report), ensure_ascii=False, indent=2, default=str))
+
+    # This will stop nv-ingest container services and release some gpu memory
+    compose(cmd=["down"], path=settings.compose_file_path)
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-from rag_platform.retrieval.dotnet_client import DotNetApiClient
+from rag_platform.retrieval.LLM.Dotnet_Integration.dotnet_client import DotNetApiClient
 
 
 @dataclass(frozen=True)

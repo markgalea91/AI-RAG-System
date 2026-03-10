@@ -11,18 +11,22 @@ class Settings(BaseSettings):
     Central configuration for the RAG platform.
     Values are loaded from environment variables when available.
     """
+    # ------------------------
+    # DOCKER IMAGES/CONTAINERS SERVICES DIRECTORY
+    # ------------------------
+    compose_file_path: str = Field(default="/home/markgt/nv-ingest", env="COMPOSE_FILE_PATH")
 
     # ------------------------
     # Core Vector DB Settings
     # ------------------------
     milvus_uri: str = Field(default="http://localhost:19530", env="MILVUS_URI")
-    collection_name: str = Field(default="MTCA_ENG_HYB", env="COLLECTION_NAME")
+    collection_name: str = Field(default="MTCA_2", env="COLLECTION_NAME")
     sparse_retrieval: bool = Field(default=True, env="SPARSE_RETRIEVAL")
     top_k: int = Field(default=3, env="TOP_K")
     max_chars_per_chunk: int = Field(default=1200, env="MAX_CHAR_PER_CHUNK")
     dense_dim: int = Field(default=2048, env="DENSE_DIM")
     gpu_cagra: bool = Field(default=True, env="GPU_CAGRA")
-    hybrid_search: bool = Field(default=False, env="HYBRID_SEARCH")
+    hybrid_search: bool = Field(default=True, env="HYBRID_SEARCH")
 
     # ------------------------
     # nv-ingest Client
@@ -65,10 +69,16 @@ class Settings(BaseSettings):
     # ------------------------
     use_api: bool = Field(default=True, env="USE_LLM_API")
     is_chat: bool = Field(default=False, env="IS_CHAT")
-    base_url: str = Field(default="https://llmapi.2iltd.com", env="BASE_URL")
+    dotnet_base_url: str = Field(default="https://llmapi.2iltd.com", env="BASE_URL")
     provider: str = Field(default="Ollama", env="PROVIDER")
     api_client_guid: str = Field(default="7fe78163-0c8f-4bd1-b36b-bc75843bb69f", env="CLIENT_GUID")
 
+    # -----------------------
+    # vLLM
+    # -----------------------
+    vllm_base_url: str = Field(default="http://localhost:13001/v1", env="VLLM_BASE_URL")
+    vllm_model: str = Field(default="nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4", env="VLLM_MODEL")
+    vllm_translator_model: str = Field(default="kaitchup/translategemma-27b-it-autoround-w4a16", env="VLLM_TRANSLATOR_MODEL")
 
     # ----------------
     # LOGGING

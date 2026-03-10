@@ -11,7 +11,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 
-from rag_platform.retrieval.dotnet_llm import DotNetLlmClient
+from rag_platform.retrieval.LLM.Dotnet_Integration.dotnet_llm import DotNetLlmClient
 
 
 _THINK_BLOCK_RE = re.compile(r"(?is)<think>\s*(.*?)\s*</think>\s*(.*)$")

@@ -9,32 +9,35 @@ from rag_platform.common.health import aggregate, check_milvus_uri, check_nim_em
 from rag_platform.config.settings import get_settings
 from rag_platform.retrieval.milvus_client import MilvusRetriever
 from rag_platform.retrieval.service import RetrievalService
+from rag_platform.common.health import compose
 
 
 def main() -> None:
 
     s = get_settings()
-    readiness = aggregate([
-        check_milvus_uri(s.milvus_uri),
-        check_nim_embedding(s.embedding_endpoint),
-        check_ollama(getattr(s, "ollama_base_url", "http://localhost:11434")),
-    ])
-    if not readiness["ok"]:
-        print(json.dumps(readiness, indent=2))
-        raise SystemExit(2)
+    # readiness = aggregate([
+    #     check_milvus_uri(s.milvus_uri),
+    #     check_nim_embedding(s.embedding_endpoint),
+    #     check_ollama(getattr(s, "ollama_base_url", "http://localhost:11434")),
+    # ])
+    # if not readiness["ok"]:
+    #     print(json.dumps(readiness, indent=2))
+    #     raise SystemExit(2)
 
     p = argparse.ArgumentParser()
     # RAG Solution Settings
     p.add_argument("--milvus-uri", default="http://localhost:19530")
-    p.add_argument("--collection", default="MTCA_ENG_HYB")
+    p.add_argument("--collection", default="MTCA")
     p.add_argument("--hybrid", action="store_true", default=False)
     p.add_argument("--top-k", type=int, default=3)
-    p.add_argument("--llm-model", default="nemotron-3-nano:30b")
-    p.add_argument("--translate-model", default="translategemma:12b")
+    # p.add_argument("--llm-model", default="nemotron-3-nano:30b")
+    p.add_argument("--llm-model", default="nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4")
+    # p.add_argument("--translate-model", default="translategemma:27b")
+    p.add_argument("--translate-model", default="kaitchup/translategemma-27b-it-autoround-w4a16")
     p.add_argument("--reasoning", default=True)
 
     # LLM API Integration Settings
-    p.add_argument("--use-api", default=True)
+    p.add_argument("--use-api", default=False)
     p.add_argument("--is-chat", default=False)
     p.add_argument("--base-url", default="https://llmapi.2iltd.com")
     p.add_argument("--provider", default="Ollama")
@@ -52,10 +55,14 @@ def main() -> None:
 
     trace_id = str(uuid.uuid4())
 
+    # This will run the embeddings docker container service only
+    compose(["up", "-d", "embedding"], s.compose_file_path)
+
     retriever = MilvusRetriever(milvus_uri=args.milvus_uri, collection_name=args.collection, hybrid=args.hybrid)
     svc = RetrievalService(
         retriever=retriever,
         llm_model=args.llm_model,
+        vllm_base_url="http://localhost:13001/v1",
         translate_model=args.translate_model,
         temperature=0.0,
         reasoning=args.reasoning,
